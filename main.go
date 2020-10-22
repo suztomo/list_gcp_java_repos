@@ -21,7 +21,7 @@ func main() {
 	client := github.NewClient(tc)
 
 	orgs := []string{"GoogleCloudPlatform", "googleapis", "GoogleCloudDataproc",
-		"cloudendpoints", "cloudspannerecosystem", "dialogflow"}
+		"cloudendpoints", "cloudspannerecosystem", "dialogflow", "protocolbuffers"}
 
 	for _, org := range orgs {
 		// list all repositories for the authenticated user
@@ -47,6 +47,25 @@ func main() {
 				elements := []string{org, *repo.Name, lang, description, createdAt.Format("2006-01-02"),
 					updatedAt.Format("2006-01-02"), pushedAt.Format("2006-01-02")}
 				println(strings.Join(elements, "|"))
+
+				owner := repo.Owner
+				if owner != nil {
+					if *owner.Type != "Organization" {
+						println("The owner is not an organization")
+					}
+					// organizationID := owner.ID
+
+					repoName := *repo.Name
+					ownerName := *owner.Login
+
+					teams, _, err := client.Repositories.ListTeams(ctx, ownerName, repoName, nil)
+					if err != nil {
+						println("Failed to fetch teams", err.Error())
+					}
+					for _, team := range teams {
+						println(*team.Name, *team.Description)
+					}
+				}
 			}
 
 			if resp.NextPage == 0 {
