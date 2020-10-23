@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"os"
 	"strings"
 
@@ -43,24 +45,43 @@ func main() {
 			}
 
 			for _, repo := range repos {
-				repoUrl := repo.URL
+				//				repoURL := repo.URL
+				name := *repo.Name
 				lang := repo.GetLanguage()
 				description := ""
-				createdAt := repo.CreatedAt
-				updatedAt := repo.UpdatedAt
-				pushedAt := repo.PushedAt
+				//				createdAt := repo.CreatedAt
+				//				updatedAt := repo.UpdatedAt
+				//				pushedAt := repo.PushedAt
 
 				if repo.Description != nil {
 					description = *repo.Description
+				}
+
+				exclusionWords := []string{"sample", "example", "Sample", "Example"}
+				foundWord := false
+				for _, word := range exclusionWords {
+					if strings.Contains(name, word) || strings.Contains(description, word) {
+						foundWord = true
+					}
+				}
+				if foundWord {
+					continue
 				}
 
 				if lang != "Java" {
 					continue
 				}
 
-				elements := []string{org, *repo.Name, *repoUrl, lang, description, createdAt.Format("2006-01-02"),
-					updatedAt.Format("2006-01-02"), pushedAt.Format("2006-01-02")}
-				println(strings.Join(elements, "|"))
+				if strings.Contains(description, "|") {
+					println("Description contains selarator")
+					os.Exit(1)
+
+				}
+
+				listContributors(tc, org, repo)
+
+				// elements := []string{org, name, *repoURL, lang, description}
+				//println(strings.Join(elements, "|"))
 			}
 
 			if resp.NextPage == 0 {
@@ -70,4 +91,35 @@ func main() {
 		}
 
 	}
+}
+
+func listContributors(client *http.Client, organizationName string, repo *github.Repository) error {
+
+	response, err := client.Get(*repo.ContributorsURL)
+	if err != nil {
+		return err
+	}
+
+	defer response.Body.Close()
+	var contributors []github.User
+
+	json.NewDecoder(response.Body).Decode(&contributors)
+
+	description := ""
+	if repo.Description != nil {
+		description = *repo.Description
+	}
+
+	for _, user := range contributors {
+		elements := []string{
+			organizationName,
+			*repo.Name,
+			*repo.URL,
+			*repo.Language,
+			description,
+			*user.Login}
+		println(strings.Join(elements, "|"))
+	}
+
+	return nil
 }
